@@ -21,8 +21,6 @@ class Manager:
                 position = self._get_move()
                 is_valid = board.validate_move(position)
             is_winner = board.make_move(self._current_player, position)
-            print(is_winner)
-            print(board._grid)
             self._moves_remaining = board.moves_remaining
             if is_winner:
                 self._winner = self._current_player
@@ -33,6 +31,8 @@ class Manager:
             print("Winner is {}!".format(self._winner))
 
     def _get_move(self):
+        grid = self._board.get_grid()
+        print("Current board:\n{}".format(grid))
         if self._current_player == Player.POSITIVE:
             player_name = "One"
         else:
@@ -64,6 +64,10 @@ class Board:
         self.last_move = None
         self.moves_remaining = 9
 
+    # Return a copy of the grid.
+    def get_grid(self):
+        return self._grid.copy()
+
     # Make a move and return whether this produces a winner.
     def make_move(self, player, position):
         # Validate input.
@@ -85,14 +89,7 @@ class Board:
         is_winner = self.check_if_winner()
         return is_winner
 
-    def _validate_position(self, position):
-        assert len(position) == 2, "position must be length 2."
-        for val in position:
-            assert val >= 0, "Values in position must be >= 0."
-            assert val <= 2, "Values in position must be <= 2."
-        position = tuple(position)  # Used for indexing the numpy array.
-        return position
-
+    # Check whether a move is valid, without making it.
     def validate_move(self, position):
         valid = True
         try:
@@ -105,6 +102,14 @@ class Board:
             if self._grid[position] != 0:
                 valid = False
         return valid
+
+    def _validate_position(self, position):
+        assert len(position) == 2, "position must be length 2."
+        for val in position:
+            assert val >= 0, "Values in position must be >= 0."
+            assert val <= 2, "Values in position must be <= 2."
+        position = tuple(position)  # Used for indexing the numpy array.
+        return position
 
     # Check if the last move produced a winner.
     def check_if_winner(self):
