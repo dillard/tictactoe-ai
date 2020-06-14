@@ -55,8 +55,23 @@ class RandomPlayer(Player):
         return position
 
 
+# Uses a trained model to make moves.
 class AIPlayer(Player):
-    pass
+    def __init__(self, model):
+        super().__init__()
+        self._model = model
+
+    def make_move(self, board):
+        state = board.get_grid()
+        inference = self._model.predict(np.ravel(state).reshape((1, 9)))
+        # Evaluate each potential move (ordered by inferred reward), taking the first valid one.
+        moves = sorted(zip(inference[0], range(9)), key=lambda x: x[0], reverse=True)
+        for (reward, m) in moves:
+            position = np.unravel_index(m, (3, 3))
+            is_valid = board.validate_move(position)
+            if is_valid:
+                break
+        return position
 
 
 # Game manager for training an RL model.
