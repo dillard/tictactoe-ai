@@ -57,7 +57,7 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
             target_vec = inference
             target_vec[0][move] = target
             # Update the model.
-            model.fit(np.ravel(state).reshape((1, 9)), target_vec, epochs=1, verbose=0)
+            model.fit(np.ravel(state).reshape((1, 9)), target_vec, shuffle=False, verbose=0)
             state = new_state
         outcomes.append(outcome)
     return outcomes
