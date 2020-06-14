@@ -23,7 +23,7 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
                rewards=(0, 0.25, 0.5, 2)):
     outcomes = []
     for i in range(num_games):
-        training_manager = ge.TrainingManager(ge.PlayerType.RANDOM)
+        training_manager = ge.TrainingManager("random")
         state = training_manager.start_game()
         eps *= decay_factor
         if i % int(num_games/10) == 0:

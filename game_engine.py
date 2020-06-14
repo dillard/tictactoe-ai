@@ -1,44 +1,99 @@
+import abc
 import enum
 
 import numpy as np
 
 
-# Player types. Used both for training and playing the game.
-class PlayerType(enum.Enum):
-    HUMAN = "HUMAN"
-    RANDOM = "RANDOM"
-    DEEP_RL = "DEEP_RL"
+# Abstract class for creating players.
+class Player(abc.ABC):
+    def __init__(self):
+        self._symbol = None
+
+    @property
+    def symbol(self):
+        return self._symbol
+
+    # The game manager sets the symbol (X, O) for each player before any moves are made.
+    @symbol.setter
+    def symbol(self, symbol):
+        assert symbol in Symbol, "Invalid symbol."
+        self._symbol = symbol
+
+    @abc.abstractmethod
+    def make_move(self, board):
+        pass
 
 
-# Game manager for training.
-# TODO: refactor with Manager, create class for Player
+# Collects moves via prompt.
+class HumanPlayer(Player):
+    def make_move(self, board):
+        grid = board.get_grid()
+        position = self._get_move(grid)
+        is_valid = board.validate_move(position)
+        # If move is involid, keep prompting until receive a valid move.
+        while not is_valid:
+            print("Position {} is already filled or invalid. Make a different move.".format(position))
+            position = self._get_move(grid)
+            is_valid = board.validate_move(position)
+        return position
+
+    def _get_move(self, grid):
+        if self.symbol is None:
+            raise RuntimeError("Must set the symbol for this player.")
+        print("Current board:\n{}".format(grid))
+        player_name = self.symbol.name
+        row = int(input("Row for player {}? (0 - 2)".format(player_name)))
+        column = int(input("Column for player {}? (0 - 2)".format(player_name)))
+        position = (row, column)
+        return position
+
+
+# Makes random moves.
+class RandomPlayer(Player):
+    def make_move(self, board):
+        position = board.get_random_move()
+        return position
+
+
+class AIPlayer(Player):
+    pass
+
+
+# Game manager for training an RL model.
+# Provides methods for the training function to call for game setup and making a move.
 class TrainingManager:
-    def __init__(self, player_type, random_order=True):
-        assert player_type in PlayerType, "Invalid type {} for player.".format(player_type)
+    # The RL model under training is always player O.
+    # player_x accepts either:
+        # instance of Player
+        # string: ("human", "random") to create a player of that type
+    def __init__(self, player_x, random_order=True):
+        assert isinstance(player_x, (Player, str)), "Invalid player_x."
 
-        # Map each player type to the method used to gather and make moves for that player type.
-        executor_map = {
-            PlayerType.HUMAN: self._make_human_move,
-            PlayerType.RANDOM: self._make_random_move,
-            PlayerType.DEEP_RL: self._make_deep_rl_move
-        }
+        # Generate player X, if not already passed in.
+        if not isinstance(player_x, Player):
+            player_x = Manager.generate_player(player_x)
+        player_x.symbol = Symbol.X
+        self._player_x = player_x
 
-        # Executor method for each player.
-        self._executor = executor_map[player_type]
+        # Determine starting player
         if random_order and (np.random.rand() < 0.5):
-            # If order is random, 50% chance to be O.
-            self._current_player = _Player.O
+            # If order is random, 50% chance to start with the training player (O).
+            self._current_player = Symbol.O
         else:
-            # All other cases (50% chance when random, default when not random) start player is X.
-            self._current_player = _Player.X  # X is the DL training player
+            # All other cases (50% chance when random, default when not random) start with the
+            # non-training player (X).
+            self._current_player = Symbol.X
+
         self._winner = None
         self._board = Board()
         self._moves_remaining = self._board.moves_remaining
 
-    # Return the starting game state, after making a move for the other player, if needed.
+    # Return the starting game state, after making a move for player X, if needed.
     def start_game(self):
-        if self._current_player == _Player.O:
-            self._executor()
+        if self._current_player == Symbol.X:
+            board = self._board
+            position = self._player_x.make_move(board)
+            board.make_move(self._current_player, position)
             self._switch_player()
         return self._board.get_grid()
 
@@ -50,12 +105,12 @@ class TrainingManager:
         # whether the game is over: boolean
         # whether the move resulted in the training player winning:
             # True: training player has won the game
-            # False: training player has lost the game
+            # False: training player has lost the game (opponent has won)
             # None: no winner
     def make_move(self, position):
         assert self._moves_remaining > 0, "No more moves remaining. The game is over."
         assert self._winner is None, "The game is over, with a winner."
-        assert self._current_player == _Player.X, "Bug in code. Expect Player X to be current player."
+        assert self._current_player == Symbol.O, "Bug in code. Expect Player O to be current player."
         board = self._board
 
         # Validate the move. If invalid, return an unchanged game state.
@@ -75,15 +130,16 @@ class TrainingManager:
             grid = board.get_grid()
             return (grid, is_valid, True, None)
 
-        # Otherwise, the game continues with the other player. Again, return if the game has ended.
+        # Otherwise, the game continues with the other player (X). Again, return if the game has
+        # ended.
         self._switch_player()
-        is_winner = self._executor()
-        self._moves_remaining = board.moves_remaining
         if is_winner:
             self._winner = self._current_player
+            position = self._player_x.make_move(board)
+            board.make_move(self._current_player, position)
             grid = board.get_grid()
             return (grid, is_valid, True, False)
-        if self._moves_remaining == 0:
+        if board.moves_remaining == 0:
             grid = board.get_grid()
             return (grid, is_valid, True, None)
 
@@ -93,129 +149,98 @@ class TrainingManager:
         return (grid, is_valid, False, None)
 
     def _switch_player(self):
-        next_player = _Player(self._current_player.value * -1)
-        self._current_player = next_player
-
-    # Methods to gather and make moves for various player types.
-    def _make_human_move(self):
-        board = self._board
-        current_player = self._current_player
-
-        position = self._get_human_move()
-        is_valid = board.validate_move(position)
-        while not is_valid:
-            position = self._get_human_move()
-            is_valid = board.validate_move(position)
-        is_winner = board.make_move(current_player, position)
-        return is_winner
-
-    def _get_human_move(self):
-        grid = self._board.get_grid()
-        print("Current board:\n{}".format(grid))
-        if self._current_player == _Player.X:
-            player_name = "X (+1)"
+        if self._current_player == Symbol.X:
+            next_player = Symbol.O
         else:
-            player_name = "O (-1)"
-        row = int(input("Row for player {}? (0 - 2)".format(player_name)))
-        column = int(input("Column for player {}? (0 - 2)".format(player_name)))
-        position = (row, column)
-        return position
-
-    def _make_random_move(self):
-        is_winner = self._board.make_random_move(self._current_player)
-        return is_winner
-
-    def _make_deep_rl_move(self):
-        pass
+            next_player = Symbol.X
+        self._current_player = next_player
 
 
 # Game manager, for playing the game.
 # Actively queries for each move, based on the player type.
 class Manager:
-    def __init__(self, player_x_type, player_o_type, random_order=False):
-        assert player_x_type in PlayerType, "Invalid type {} for player x.".format(player_x_type)
-        assert player_o_type in PlayerType, "Invalid type {} for player o.".format(player_x_type)
+    # player_x and player_x accept either:
+        # instance of Player
+        # string: ("human", "random") to create a player of that type
+    def __init__(self, player_x, player_o, random_order=False):
+        assert isinstance(player_x, (Player, str)), "Invalid player_x."
+        assert isinstance(player_o, (Player, str)), "Invalid player_x."
 
-        # Map each player type to the method used to gather and make moves for that player type.
-        executor_map = {
-            PlayerType.HUMAN: self._make_human_move,
-            PlayerType.RANDOM: self._make_random_move,
-            PlayerType.DEEP_RL: self._make_deep_rl_move
-        }
+        # Generate Player instances, if not already passed.
+        if not isinstance(player_x, Player):
+            player_x = self.generate_player(player_x)
+        if not isinstance(player_o, Player):
+            player_o = self.generate_player(player_o)
 
-        # Executor method for each player.
-        self._executors = {
-            _Player.X: executor_map[player_x_type],
-            _Player.O: executor_map[player_o_type]
-        }
+        # Set symbol for each player.
+        player_x.symbol = Symbol.X
+        player_o.symbol = Symbol.O
+
         if random_order and (np.random.rand() < 0.5):
-            # If order is random, 50% chance to be O.
-            self._current_player = _Player.O
+            # If order is random, 50% chance to start with player O.
+            self._play_order = (player_o, player_x)
         else:
             # All other cases (50% chance when random, default when not random) start player is X.
-            self._current_player = _Player.X
+            self._play_order = (player_x, player_o)
         self._winner = None
         self._board = Board()
         self._moves_remaining = self._board.moves_remaining
         self._run_game()
 
+    @property
+    def winner(self):
+        return self._winner
+
+    @property
+    def moves_remaining(self):
+        return self._moves_remaining
+
+    @classmethod
+    def generate_player(cls, player_type):
+        if player_type == "human":
+            player = HumanPlayer()
+        elif player_type == "random":
+            player = RandomPlayer()
+        else:
+            raise ValueError("Invalid player specification {}. Must be 'human' or 'random'.".format(player_type))
+        return player
+
     def _run_game(self):
         board = self._board
         while (self._winner is None) and (self._moves_remaining > 0):
-            current_player = self._current_player
-            is_winner = self._executors[current_player]()
+            current_player = self._play_order[0]
+            position = current_player.make_move(board)
+            is_winner = board.make_move(current_player.symbol, position)
             self._moves_remaining = board.moves_remaining
             if is_winner:
-                self._winner = current_player
+                self._winner = current_player.symbol
             self._switch_player()
         if self._winner is None:
             print("No winner. No more moves remaining.")
         else:
-            print("Winner is {}!".format(self._winner))
+            print("Winner is player {}!".format(self._winner.name))
         print("Final board:\n{}".format(board.get_grid()))
 
     def _switch_player(self):
-        next_player = _Player(self._current_player.value * -1)
-        self._current_player = next_player
-
-    # Methods to gather and make moves for various player types.
-    def _make_human_move(self):
-        board = self._board
-        current_player = self._current_player
-
-        position = self._get_human_move()
-        is_valid = board.validate_move(position)
-        while not is_valid:
-            position = self._get_human_move()
-            is_valid = board.validate_move(position)
-        is_winner = board.make_move(current_player, position)
-        return is_winner
-
-    def _get_human_move(self):
-        grid = self._board.get_grid()
-        print("Current board:\n{}".format(grid))
-        if self._current_player == _Player.X:
-            player_name = "X (+1)"
-        else:
-            player_name = "O (-1)"
-        row = int(input("Row for player {}? (0 - 2)".format(player_name)))
-        column = int(input("Column for player {}? (0 - 2)".format(player_name)))
-        position = (row, column)
-        return position
-
-    def _make_random_move(self):
-        is_winner = self._board.make_random_move(self._current_player)
-        return is_winner
-
-    def _make_deep_rl_move(self):
-        pass
+        self._play_order = self._play_order[::-1]
 
 
-# Internal enum to track the players. Use +/-1 to represent them on the board.
-# TODO: add val and name fields
-class _Player(enum.Enum):
-    X = 1
-    O = -1
+# Symbols used by each player. Use +/-1 to represent them on the board.
+class Symbol(enum.Enum):
+    X = (1, "X")
+    O = (-1, "O")
+
+    def __init__(self, board_value, name):
+        self._board_value = board_value
+        self._name = name
+
+    @property
+    def board_value(self):
+        return self._board_value
+
+    @property
+    def name(self):
+        return self._name
 
 
 # The game board.
@@ -236,7 +261,7 @@ class Board:
     # Make a move and return whether this produces a winner.
     def make_move(self, player, position):
         # Validate input.
-        assert player in _Player, "player {} is not valid.".format(player)
+        assert player in Symbol, "player {} is not valid.".format(player)
         position = self._validate_position(position)
 
         # Validate move.
@@ -245,7 +270,7 @@ class Board:
             raise ValueError("Specified position {} is taken. Move is not valid.".format(position))
 
         # Execute move.
-        self._grid[position] = player.value
+        self._grid[position] = player.board_value
         self.last_player = player
         self.last_move = position
         self.moves_remaining -= 1
@@ -254,18 +279,17 @@ class Board:
         is_winner = self.check_if_winner()
         return is_winner
 
-    # Make a valid, random move.
-    def make_random_move(self, player):
+    # Generate a valid, random move.
+    def get_random_move(self):
         # Array mask to knockout invalid positions.
         mask = 1 - np.abs(self._grid)
-        # Generate a random value for each position.
+        # Generate a random board_value for each position.
         # Take the argmax after multiplying each element by the knockout mask.
         random_grid = np.random.rand(3, 3)
         masked_grid = np.multiply(random_grid, mask)
         # Have to regenerate the 2D index, since np.argmax flattens the array.
         random_position = np.unravel_index(np.argmax(masked_grid), masked_grid.shape)
-        is_winner = self.make_move(player, random_position)
-        return is_winner
+        return random_position
 
     # Check whether a move is valid, without making it.
     def validate_move(self, position):
