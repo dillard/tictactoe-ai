@@ -1,6 +1,15 @@
+import enum
 import numpy as np
 
 import game_engine as ge
+
+
+# Outcomes of training games.
+class Outcome(enum.Enum):
+    INVALID = -1  # Invalid move
+    LOSS = 0
+    TIE = 1
+    WIN = 2
 
 
 # Training code, using Q reinforcement learning.
@@ -11,11 +20,7 @@ import game_engine as ge
     # losing the game
     # tying the game
     # winning the game
-# Returns a list with the outcome for each game:
-    # -1: invalid move
-    # 0: lost game
-    # 1: tied game
-    # 2: won game
+# Returns a list with the outcome for each game.
 # Code adapted from:
 # https://adventuresinmachinelearning.com/reinforcement-learning-tutorial-python-keras/
 # https://github.com/adventuresinML/adventures-in-ml-code/blob/master/r_learning_python.py
@@ -40,18 +45,19 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
             new_state, move_valid, game_finished, is_winner = training_manager.make_move(position)
             # Determine reward (and, if the game is finished, the outcome).
             if not move_valid:
+                # On an invalid move, stop the game and proceed to the next game.
                 reward = rewards[0]
-                outcome = -1
+                outcome = Outcome.INVALID
                 game_finished = True
             elif is_winner is True:
                 reward = rewards[3]
-                outcome = 2
+                outcome = Outcome.WIN
             elif is_winner is False:
                 reward = rewards[1]
-                outcome = 0
+                outcome = Outcome.LOSS
             else:
                 reward = rewards[2]
-                outcome = 1
+                outcome = Outcome.TIE
             # Create target vector for training. Only modify the value for the move chosen.
             target = reward + y * np.max(model.predict(np.ravel(new_state).reshape((1, 9))))
             target_vec = inference
