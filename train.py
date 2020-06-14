@@ -20,7 +20,9 @@ class Outcome(enum.Enum):
     # losing the game
     # tying the game
     # winning the game
-# Returns a list with the outcome for each game.
+# Returns a tuple of (outcomes, metadata), where
+    # outcomes is a list with the outcome for each game
+    # metadata is a dict of training paramenters
 # Code adapted from:
 # https://adventuresinmachinelearning.com/reinforcement-learning-tutorial-python-keras/
 # https://github.com/adventuresinML/adventures-in-ml-code/blob/master/r_learning_python.py
@@ -66,4 +68,11 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
             model.fit(np.ravel(state).reshape((1, 9)), target_vec, shuffle=False, verbose=0)
             state = new_state
         outcomes.append(outcome)
-    return outcomes
+    metadata = {'num_games': num_games,
+                'y': y,
+                'eps': eps,
+                'decay_factor': decay_factor,
+                'rewards': rewards,
+                'opponent': 'random',
+                'state_values': (1, 0, -1)}
+    return (outcomes, metadata)
