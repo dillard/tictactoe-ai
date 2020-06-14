@@ -1,47 +1,63 @@
 import numpy as np
-import keras
-#from keras.models import Sequential
-#from keras.layers import Dense, InputLayer
 
 import game_engine as ge
 
+
+# Training code, using Q reinforcement learning.
+# The model should take an array of shape (1, 9) as input and produce an array of shape (1, 9) as
+# output.
+# rewards is a 4-tuple, specifying rewards for:
+    # making an invalid move
+    # losing the game
+    # tying the game
+    # winning the game
+# Returns a list with the outcome for each game:
+    # -1: invalid move
+    # 0: lost game
+    # 1: tied game
+    # 2: won game
 # Code adapted from:
 # https://adventuresinmachinelearning.com/reinforcement-learning-tutorial-python-keras/
 # https://github.com/adventuresinML/adventures-in-ml-code/blob/master/r_learning_python.py
-
-
-def q_learning_keras(env, num_episodes=1000):
-    # create the keras model
-    model = keras.models.Sequential()
-    model.add(keras.layers.InputLayer(batch_input_shape=(3, 3)))
-    model.add(keras.layers.Dense(10, activation='sigmoid'))
-    model.add(keras.layers.Dense(2, activation='linear'))
-    model.compile(loss='mse', optimizer='adam', metrics=['mae'])
-    # now execute the q learning
-    y = 0.95
-    eps = 0.5
-    decay_factor = 0.999
-    r_avg_list = []
-    for i in range(num_episodes):
-        training_manager = ge.TrainingManager()
+def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
+               rewards=(0, 0.25, 0.5, 2)):
+    outcomes = []
+    for i in range(num_games):
+        training_manager = ge.TrainingManager(ge.PlayerType.RANDOM)
         state = training_manager.start_game()
         eps *= decay_factor
-        if i % 100 == 0:
-            print("Episode {} of {}".format(i + 1, num_episodes))
-        done = False
-        r_sum = 0
-        while not done:
+        if i % int(num_games/10) == 0:
+            print("Game {} of {}.".format(i + 1, num_games))
+        game_finished = False
+        while not game_finished:
+            inference = model.predict(np.ravel(state).reshape((1, 9)))
+            # Explore using a random action with decaying probability.
             if np.random.random() < eps:
-                a = np.random.randint(0, 2)
+                move = np.random.randint(0, 9)
             else:
-                a = np.argmax(model.predict(np.identity(5)[state:state + 1]))
-            new_s, r, done, _ = env.step(a)
-            target = r + y * np.max(model.predict(np.identity(5)[new_s:new_s + 1]))
-            target_vec = model.predict(np.identity(5)[state:state + 1])[0]
-            target_vec[a] = target
-            model.fit(np.identity(5)[state:state + 1], target_vec.reshape(-1, 2), epochs=1, verbose=0)
-            state = new_s
-            r_sum += r
-        r_avg_list.append(r_sum / 1000)
-    for i in range(5):
-        print("State {} - action {}".format(i, model.predict(np.identity(5)[i:i + 1])))
+                move = np.argmax(inference)
+            position = np.unravel_index(move, (3, 3))
+            new_state, move_valid, game_finished, is_winner = training_manager.make_move(position)
+            # Determine reward (and, if the game is finished, the outcome).
+            if not move_valid:
+                reward = rewards[0]
+                outcome = -1
+                game_finished = True
+            elif is_winner is True:
+                reward = rewards[3]
+                outcome = 2
+            elif is_winner is False:
+                reward = rewards[1]
+                outcome = 0
+            else:
+                reward = rewards[2]
+                outcome = 1
+            # Create target vector for training. Only modify the value for the move chosen.
+            target = reward + y * np.max(model.predict(np.ravel(new_state).reshape((1, 9))))
+            target_vec = inference
+            target_vec[0][move] = target
+            # Update the model.
+            model.fit(np.ravel(state).reshape((1, 9)), target_vec, epochs=1, verbose=0)
+            state = new_state
+        outcomes.append(outcome)
+    return outcomes

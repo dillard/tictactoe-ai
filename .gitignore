@@ -1,2 +1,5 @@
 *.pyc
 .idea/
+notes.txt
+model*/
+.ipynb_checkpoints/
