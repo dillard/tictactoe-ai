@@ -177,7 +177,7 @@ class Manager:
     # player_x and player_x accept either:
         # instance of Player
         # string: ("human", "random") to create a player of that type
-    def __init__(self, player_x, player_o, random_order=False):
+    def __init__(self, player_x, player_o, random_order=False, verbose=True):
         assert isinstance(player_x, (Player, str)), "Invalid player_x."
         assert isinstance(player_o, (Player, str)), "Invalid player_x."
 
@@ -197,6 +197,7 @@ class Manager:
         else:
             # All other cases (50% chance when random, default when not random) start player is X.
             self._play_order = (player_x, player_o)
+        self._verbose = verbose
         self._winner = None
         self._board = Board()
         self._moves_remaining = self._board.moves_remaining
@@ -230,11 +231,12 @@ class Manager:
             if is_winner:
                 self._winner = current_player.symbol
             self._switch_player()
-        if self._winner is None:
-            print("No winner. No more moves remaining.")
-        else:
-            print("Winner is player {}!".format(self._winner.name))
-        print("Final board:\n{}".format(board.get_grid()))
+        if self._verbose:
+            if self._winner is None:
+                print("No winner. No more moves remaining.")
+            else:
+                print("Winner is player {}!".format(self._winner.name))
+            print("Final board:\n{}".format(board.get_grid()))
 
     def _switch_player(self):
         self._play_order = self._play_order[::-1]
