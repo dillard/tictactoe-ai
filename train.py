@@ -53,9 +53,11 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
                 outcome = Outcome.INVALID
                 game_finished = True
             elif is_winner is True:
+                assert game_finished, "Bug in code. Expect game to be finished."
                 reward = rewards[3]
                 outcome = Outcome.WIN
             elif is_winner is False:
+                assert game_finished, "Bug in code. Expect game to be finished."
                 reward = rewards[1]
                 outcome = Outcome.LOSS
             else:

@@ -17,8 +17,7 @@ def calculate_training_sequence(outcomes):
     local_length = max(interval, min(int(num_games / 10), 100))
 
     rolling_percent_invalid = [np.vectorize(lambda x: int(x == train.Outcome.INVALID))(
-        outcomes[n:(n + local_length)]).sum() /
-                              local_length
+        outcomes[n:(n + local_length)]).sum() / local_length
                               for n in range(0, len(outcomes) - local_length, interval)]
     rolling_percent_loss = [np.vectorize(lambda x: int(x == train.Outcome.LOSS))(
         outcomes[n:(n + local_length)]).sum() / local_length
