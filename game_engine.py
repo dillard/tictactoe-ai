@@ -148,10 +148,10 @@ class TrainingManager:
         # Otherwise, the game continues with the other player (X). Again, return if the game has
         # ended.
         self._switch_player()
+        position = self._player_x.make_move(board)
+        is_winner = board.make_move(self._current_player, position)
         if is_winner:
             self._winner = self._current_player
-            position = self._player_x.make_move(board)
-            board.make_move(self._current_player, position)
             grid = board.get_grid()
             return (grid, is_valid, True, False)
         if board.moves_remaining == 0:
@@ -339,10 +339,10 @@ class Board:
         if abs(grid[position[0]].sum()) == 3:
             is_winner = True
         # Check column.
-        if (is_winner is False) and abs(grid[:, position[1]].sum()) == 3:
+        elif abs(grid[:, position[1]].sum()) == 3:
             is_winner = True
         # Check diagonals.
-        if (is_winner is False) and (position in self._down_diagonal_positions):
+        elif (position in self._down_diagonal_positions):
             total = sum([grid[p] for p in self._down_diagonal_positions])
             if abs(total) == 3:
                 is_winner = True
