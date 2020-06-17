@@ -1,4 +1,5 @@
 import enum
+
 import numpy as np
 
 import game_engine as ge

@@ -1,7 +1,6 @@
 import math
+
 import numpy as np
-import pandas as pd
-import tensorflow as tf
 
 import game_engine as ge
 import train
