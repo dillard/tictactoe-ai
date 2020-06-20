@@ -33,7 +33,7 @@ def calculate_training_sequence(outcomes):
 
 # Evaluate a model by playing against a random player or another model.
 # Both player and opponent can either be a model, or 'random'.
-def head_to_head(player, opponent='random', num_games=1000):
+def head_to_head(player, opponent='random', num_games=1000, verbose=True):
     if player == 'random':
         model_player = ge.RandomPlayer()
     else:
@@ -46,8 +46,9 @@ def head_to_head(player, opponent='random', num_games=1000):
     outcomes = []
     # Run games and collect outcomes.
     for n in range(num_games):
-        if n % int(num_games/10) == 0:
-            print("Game {} of {}.".format(n + 1, num_games))
+        if verbose:
+            if n % int(num_games/10) == 0:
+                print("Game {} of {}.".format(n + 1, num_games))
         manager = ge.Manager(model_player, opponent_player, random_order=True, verbose=False)
         winner = manager.winner
         if winner is None:  # No winner, tie game.

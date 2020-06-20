@@ -28,14 +28,24 @@ class Outcome(enum.Enum):
 # https://adventuresinmachinelearning.com/reinforcement-learning-tutorial-python-keras/
 # https://github.com/adventuresinML/adventures-in-ml-code/blob/master/r_learning_python.py
 def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
-               rewards=(0, 0.25, 0.5, 2)):
+               rewards=(0, 0.25, 0.5, 2), verbose=True):
+    # Capture hyperparameters used in training:
+    metadata = {'num_games': num_games,
+                'y': y,
+                'eps': eps,
+                'decay_factor': decay_factor,
+                'rewards': rewards,
+                'opponent': 'random',
+                'state_values': (1, 0, -1)}
+
     outcomes = []
     for i in range(num_games):
         training_manager = ge.TrainingManager("random")
         state = training_manager.start_game()
         eps *= decay_factor
-        if i % int(num_games/10) == 0:
-            print("Game {} of {}.".format(i + 1, num_games))
+        if verbose:
+            if i % int(num_games/10) == 0:
+                print("Game {} of {}.".format(i + 1, num_games))
         game_finished = False
         while not game_finished:
             inference = model.predict(np.ravel(state).reshape((1, 9)))
@@ -71,11 +81,4 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
             model.fit(np.ravel(state).reshape((1, 9)), target_vec, shuffle=False, verbose=0)
             state = new_state
         outcomes.append(outcome)
-    metadata = {'num_games': num_games,
-                'y': y,
-                'eps': eps,
-                'decay_factor': decay_factor,
-                'rewards': rewards,
-                'opponent': 'random',
-                'state_values': (1, 0, -1)}
     return (outcomes, metadata)
