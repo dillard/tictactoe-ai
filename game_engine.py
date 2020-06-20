@@ -62,7 +62,11 @@ class AIPlayer(Player):
         self._model = model
 
     def make_move(self, board):
+        if self.symbol is None:
+            raise RuntimeError("Must set the symbol for this player.")
         state = board.get_grid()
+        if self.symbol == Symbol.X:  # Models are trained as player O.
+            state *= -1
         inference = self._model.predict(np.ravel(state).reshape((1, 9)))
         # Evaluate each potential move (ordered by inferred reward), taking the first valid one.
         moves = sorted(zip(inference[0], range(9)), key=lambda x: x[0], reverse=True)
@@ -125,7 +129,7 @@ class TrainingManager:
     def make_move(self, position):
         assert self._moves_remaining > 0, "No more moves remaining. The game is over."
         assert self._winner is None, "The game is over, with a winner."
-        assert self._current_player == Symbol.O, "Bug in code. Expect Player O to be current player."
+        assert self._current_player == Symbol.O, "Bug in code. Expect player O to be current player."
         board = self._board
 
         # Validate the move. If invalid, return an unchanged game state.
@@ -148,6 +152,7 @@ class TrainingManager:
         # Otherwise, the game continues with the other player (X). Again, return if the game has
         # ended.
         self._switch_player()
+        assert self._current_player == Symbol.X, "Bug in code. Expect player X to be current player."
         position = self._player_x.make_move(board)
         is_winner = board.make_move(self._current_player, position)
         if is_winner:
