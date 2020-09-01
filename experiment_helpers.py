@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pandas as pd
 
 import game_engine as ge
 import train
@@ -76,3 +77,50 @@ def head_to_head(player, opponent='random', num_games=1000, verbose=True):
 # The center is the optimal move.
 def evaluate_opening_move(model):
     pass
+
+
+# Manage (save/load) trained models and corresponding metadata.
+# Uses integer version numbers, auto-incrementing by one each time.
+class Metadata:
+    _instance = None
+    # The file in which to save the metadata. Assumes local directory.
+    _METADATA_FILE = 'metadata.csv'
+    _VERSION_COLUMN = 'version'
+    _METADATA_COLUMN = 'metadata'
+
+    # Singleton class.
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            try:
+                cls._instance._metadata = pd.read_csv(cls._METADATA_FILE, index_col=0)
+                cls._instance._max_version = cls._instance._metadata[cls._VERSION_COLUMN].values[-1]
+            except Exception as e:
+                print(e)
+                print("Unable to load metadata from file {}: {}. Initializing blank metadata.".format(cls._METADATA_FILE, type(e)))
+                cls._instance._metadata = pd.DataFrame(columns=[cls._VERSION_COLUMN,
+                                                                cls._METADATA_COLUMN])
+                cls._instance._max_version = 0
+        return cls._instance
+
+    def add_experiment(self, metadata):
+        next_version = self._max_version + 1
+        self._metadata = self._metadata.append(pd.DataFrame({self._VERSION_COLUMN: [next_version],
+                                                             self._METADATA_COLUMN: [metadata]}),
+                                               ignore_index=True, sort=False)
+        self._max_version = next_version
+        return next_version
+
+    def save(self):
+        self._metadata.to_csv(self._METADATA_FILE)
+
+    # Return a copy of the metadata DataFrame, with the metadata column exploded.
+    def exploded_copy(self):
+        def split_dict(row, key):
+            result = pd.Series()
+            for k, v in row[key].items():
+                result[k] = v
+            return result
+        copy = self._metadata.apply(lambda x: split_dict(x, 'metadata'), axis=1)
+        copy = self._metadata.join(copy)
+        return copy

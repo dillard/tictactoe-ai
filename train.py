@@ -32,10 +32,10 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
     # Capture hyperparameters used in training:
     metadata = {'num_games': num_games,
                 'y': y,
-                'eps': eps,
+                'starting_eps': eps,
                 'decay_factor': decay_factor,
                 'rewards': rewards,
-                'opponent': 'random',
+                'training_opponent': 'random',
                 'state_values': (1, 0, -1)}
 
     outcomes = []
