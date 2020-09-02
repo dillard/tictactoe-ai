@@ -76,10 +76,14 @@ def head_to_head(player, opponent='random', num_games=1000, verbose=True):
 # Find the move the model will make as first player in a new game.
 # The center is the optimal move.
 def evaluate_opening_move(model):
-    pass
+    ai = ge.AIPlayer(model)
+    ai.symbol = ge.Symbol.X
+    board = ge.Board()
+    position = ai.make_move(board)
+    return position
 
 
-# Manage (save/load) trained models and corresponding metadata.
+# Manage (save/load) metadata for trained models.
 # Uses integer version numbers, auto-incrementing by one each time.
 class Metadata:
     _instance = None
