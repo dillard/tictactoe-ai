@@ -1,3 +1,4 @@
+import json
 import math
 
 import numpy as np
@@ -109,8 +110,11 @@ class Metadata:
 
     def add_experiment(self, metadata):
         next_version = self._max_version + 1
+        # Serialize the metadata, so can save and load without problems.
+        # Requires that all metadata fields are json compatible: e.g. lists, not tuples.
+        serialized = json.dumps(metadata)
         self._metadata = self._metadata.append(pd.DataFrame({self._VERSION_COLUMN: [next_version],
-                                                             self._METADATA_COLUMN: [metadata]}),
+                                                             self._METADATA_COLUMN: [serialized]}),
                                                ignore_index=True, sort=False)
         self._max_version = next_version
         return next_version
@@ -122,7 +126,9 @@ class Metadata:
     def exploded_copy(self):
         def split_dict(row, key):
             result = pd.Series()
-            for k, v in row[key].items():
+            # Deserialize the string back into a dict.
+            deserialized = json.loads(row[key])
+            for k, v in deserialized.items():
                 result[k] = v
             return result
         copy = self._metadata.apply(lambda x: split_dict(x, 'metadata'), axis=1)

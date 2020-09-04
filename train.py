@@ -34,9 +34,9 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
                 'y': y,
                 'starting_eps': eps,
                 'decay_factor': decay_factor,
-                'rewards': rewards,
+                'rewards': list(rewards),
                 'training_opponent': 'random',
-                'state_values': (1, 0, -1)}
+                'state_values': [1, 0, -1]}
 
     outcomes = []
     for i in range(num_games):
