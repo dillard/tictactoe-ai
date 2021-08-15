@@ -2,6 +2,7 @@ import enum
 
 import numpy as np
 
+import experiment_helpers as eh
 import game_engine as ge
 
 
@@ -44,8 +45,10 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
         state = training_manager.start_game()
         eps *= decay_factor
         if verbose:
-            if i % int(num_games/10) == 0:
+            if i % int(num_games/20) == 0:
                 print("Game {} of {}.".format(i + 1, num_games))
+                position = eh.evaluate_opening_move(model)
+                print("Opening move: {}".format(position))
         game_finished = False
         while not game_finished:
             inference = model.predict(np.ravel(state).reshape((1, 9)))
@@ -57,6 +60,7 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
             position = np.unravel_index(move, (3, 3))
             new_state, move_valid, game_finished, is_winner = training_manager.make_move(position)
             # Determine reward (and, if the game is finished, the outcome).
+            reward = 0  # Default reward if no other condition met.
             if not move_valid:
                 # On an invalid move, stop the game and proceed to the next game.
                 reward = rewards[0]
@@ -71,8 +75,9 @@ def q_learning(model, num_games, y=0.95, eps=0.5, decay_factor=0.999,
                 reward = rewards[1]
                 outcome = Outcome.LOSS
             else:
-                reward = rewards[2]
-                outcome = Outcome.TIE
+                if game_finished:
+                    reward = rewards[2]
+                    outcome = Outcome.TIE
             # Create target vector for training. Only modify the value for the move chosen.
             target = reward + y * np.max(model.predict(np.ravel(new_state).reshape((1, 9))))
             target_vec = inference
